@@ -15,6 +15,10 @@ export interface PriceSearchResult {
   origin: string;
   destination: string;
   roundTrip: boolean;
+  /** True when the window was too wide to price exhaustively. */
+  sampled: boolean;
+  checkedCombinations: number;
+  totalCombinations: number;
   results: ProviderPriceResult[];
 }
 
@@ -108,14 +112,39 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * Thins a list of departure dates down to at most `limit`, keeping them
+ * evenly spread so a wide window still gets sampled end to end (and always
+ * keeps the last date, so the far edge of the window is represented).
+ */
+export function sampleEvenly<T>(items: T[], limit: number): T[] {
+  if (items.length <= limit || limit < 1) return items;
+  if (limit === 1) return [items[0]];
+
+  const step = (items.length - 1) / (limit - 1);
+  const picked: T[] = [];
+  for (let i = 0; i < limit; i++) {
+    picked.push(items[Math.round(i * step)]);
+  }
+  return Array.from(new Set(picked));
+}
+
 export async function searchPrices(params: PriceSearchParams): Promise<PriceSearchResult> {
   const { origin, destination, startDate, endDate, minStayDays, maxStayDays } = params;
   const roundTrip = typeof minStayDays === "number" && typeof maxStayDays === "number";
-  const dates = enumerateDates(startDate, endDate);
+  const allDates = enumerateDates(startDate, endDate);
+  const stayCount = roundTrip ? maxStayDays! - minStayDays! + 1 : 1;
 
-  // Each pair is one provider call. For a round trip that's every departure
-  // date crossed with every stay length, which grows fast — the route layer
-  // rejects anything over MAX_COMBINATIONS before we get here.
+  const totalCombinations = allDates.length * stayCount;
+
+  // A wide window (say October to February) can be hundreds of combinations,
+  // far past the free quota. Rather than refuse, thin the departure dates
+  // evenly so the whole window is still represented — every stay length is
+  // kept for each sampled date, so the comparison between trip lengths stays
+  // fair.
+  const dateBudget = Math.max(1, Math.floor(MAX_COMBINATIONS / stayCount));
+  const dates = sampleEvenly(allDates, dateBudget);
+
   const pairs: { date: string; returnDate: string | null }[] = [];
   for (const date of dates) {
     if (roundTrip) {
@@ -135,6 +164,9 @@ export async function searchPrices(params: PriceSearchParams): Promise<PriceSear
     origin,
     destination,
     roundTrip,
+    sampled: pairs.length < totalCombinations,
+    checkedCombinations: pairs.length,
+    totalCombinations,
     results: results.filter((r): r is ProviderPriceResult => r !== null),
   };
 }

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { ErrorBanner, PrimaryButton, SectionHeader } from "../src/components/ui";
+import { PrimaryButton, SectionHeader } from "../src/components/ui";
 import {
   MAX_COMBINATIONS,
   rangeLengthDays,
@@ -74,31 +74,29 @@ export default function StayPickerScreen() {
 
   const [min, setMin] = useState(selection.minStayDays);
   const [max, setMax] = useState(selection.maxStayDays);
-  const [error, setError] = useState<string | null>(null);
 
   const departureDays = rangeLengthDays(selection.startDate, selection.endDate);
-  const combinations = departureDays * (max - min + 1);
-  const overLimit = combinations > MAX_COMBINATIONS;
+  const stayCount = max - min + 1;
+  const combinations = departureDays * stayCount;
+
+  // Mirrors the backend's sampling budget so the number shown here is what
+  // the search will actually cost.
+  const dateBudget = Math.max(1, Math.floor(MAX_COMBINATIONS / stayCount));
+  const checkedDates = Math.min(departureDays, dateBudget);
+  const checked = checkedDates * stayCount;
+  const sampled = checked < combinations;
 
   function updateMin(v: number) {
-    setError(null);
     setMin(v);
     if (v > max) setMax(v);
   }
 
   function updateMax(v: number) {
-    setError(null);
     setMax(v);
     if (v < min) setMin(v);
   }
 
   function onDone() {
-    if (overLimit) {
-      setError(
-        `That's ${combinations} searches, over the ${MAX_COMBINATIONS} limit. Narrow the stay length or your departure dates.`
-      );
-      return;
-    }
     setStayRange(min, max);
     router.back();
   }
@@ -122,25 +120,21 @@ export default function StayPickerScreen() {
         </View>
       </View>
 
-      <View style={[styles.costCard, { backgroundColor: overLimit ? colors.dangerBg : colors.fill }]}>
-        <Text style={[styles.costValue, { color: overLimit ? colors.danger : colors.textPrimary }]}>
-          {combinations} searches
-        </Text>
-        <Text style={[styles.costNote, { color: overLimit ? colors.danger : colors.textSecondary }]}>
-          {departureDays} departure {departureDays === 1 ? "date" : "dates"} × {max - min + 1} trip{" "}
-          {max - min + 1 === 1 ? "length" : "lengths"}
-          {overLimit ? ` — over the ${MAX_COMBINATIONS} limit` : ""}
+      <View style={[styles.costCard, { backgroundColor: colors.fill }]}>
+        <Text style={[styles.costValue, { color: colors.textPrimary }]}>{checked} searches</Text>
+        <Text style={[styles.costNote, { color: colors.textSecondary }]}>
+          {sampled
+            ? `Sampling ${checkedDates} of ${departureDays} departure dates, spread evenly across your window × ${stayCount} trip ${
+                stayCount === 1 ? "length" : "lengths"
+              }`
+            : `${departureDays} departure ${departureDays === 1 ? "date" : "dates"} × ${stayCount} trip ${
+                stayCount === 1 ? "length" : "lengths"
+              }`}
         </Text>
       </View>
 
-      {error ? (
-        <View style={styles.section}>
-          <ErrorBanner message={error} />
-        </View>
-      ) : null}
-
       <View style={styles.section}>
-        <PrimaryButton title="Done" onPress={onDone} disabled={overLimit} />
+        <PrimaryButton title="Done" onPress={onDone} />
       </View>
     </ScrollView>
   );

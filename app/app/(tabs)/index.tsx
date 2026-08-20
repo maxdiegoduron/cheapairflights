@@ -13,10 +13,15 @@ import {
 } from "../../src/components/ui";
 import { findAirport } from "../../src/data/airports";
 import {
+  checkedCount,
   combinationCount,
-  MAX_COMBINATIONS,
+  DateMode,
   MAX_RANGE_DAYS,
+  MAX_STAY_DAYS,
+  MAX_WINDOW_DAYS,
+  nightsBetween,
   rangeLengthDays,
+  setDateMode,
   setTripType,
   swapAirports as swapSelection,
   TripType,
@@ -40,12 +45,17 @@ export default function SearchScreen() {
   const { colors } = useTheme();
 
   const selection = useRouteSelection();
-  const { origin, destination, startDate, endDate, tripType, minStayDays, maxStayDays } = selection;
+  const { origin, destination, startDate, endDate, tripType, dateMode, minStayDays, maxStayDays } =
+    selection;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isRoundTrip = tripType === "roundtrip";
-  const searchCount = combinationCount(selection);
+  const isExact = isRoundTrip && dateMode === "exact";
+  const isFlexible = isRoundTrip && dateMode === "flexible";
+  const searchCount = checkedCount(selection);
+  const totalCombinations = combinationCount(selection);
+  const willSample = searchCount < totalCombinations;
 
   function airportLabel(code: string): string | undefined {
     if (!code) return undefined;
@@ -59,11 +69,18 @@ export default function SearchScreen() {
     if (origin.toUpperCase() === destination.toUpperCase()) return "Origin and destination can't be the same.";
     if (!DATE.test(startDate) || !DATE.test(endDate)) return "Choose your travel dates.";
     if (startDate > endDate) return "The earliest date must come before the latest date.";
-    if (rangeLengthDays(startDate, endDate) > MAX_RANGE_DAYS) {
+    const windowDays = rangeLengthDays(startDate, endDate);
+
+    if (isExact) {
+      const nights = nightsBetween(startDate, endDate);
+      if (nights < 1) return "Pick a return date after your departure date.";
+      if (nights > MAX_STAY_DAYS) return `Trips can be up to ${MAX_STAY_DAYS} days.`;
+    } else if (isFlexible) {
+      if (windowDays > MAX_WINDOW_DAYS) {
+        return `Choose a travel window of ${MAX_WINDOW_DAYS} days or fewer.`;
+      }
+    } else if (windowDays > MAX_RANGE_DAYS) {
       return `Choose a range of ${MAX_RANGE_DAYS} days or fewer.`;
-    }
-    if (searchCount > MAX_COMBINATIONS) {
-      return `That's ${searchCount} searches, over the ${MAX_COMBINATIONS} limit. Narrow your dates or trip length.`;
     }
 
     return null;
@@ -80,12 +97,20 @@ export default function SearchScreen() {
     setLoading(true);
 
     try {
+      // Exact dates are expressed to the API as a single-day window with a
+      // fixed stay length, which yields exactly one priced trip.
+      const nights = isExact ? nightsBetween(startDate, endDate) : 0;
+
       const response = await searchPrices({
         origin: origin.toUpperCase(),
         destination: destination.toUpperCase(),
         startDate,
-        endDate,
-        ...(isRoundTrip ? { minStayDays, maxStayDays } : {}),
+        endDate: isExact ? startDate : endDate,
+        ...(isExact
+          ? { minStayDays: nights, maxStayDays: nights }
+          : isFlexible
+            ? { minStayDays, maxStayDays }
+            : {}),
       });
       router.push({ pathname: "/results", params: { data: JSON.stringify(response) } });
     } catch (e) {
@@ -113,6 +138,22 @@ export default function SearchScreen() {
             onChange={setTripType}
           />
         </View>
+
+        {isRoundTrip ? (
+          <View style={styles.section}>
+            <Text style={[styles.question, { color: colors.textPrimary }]}>
+              Do you know your exact dates?
+            </Text>
+            <SegmentedControl<DateMode>
+              options={[
+                { value: "exact", label: "Yes, I do" },
+                { value: "flexible", label: "No, I'm flexible" },
+              ]}
+              value={dateMode}
+              onChange={setDateMode}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <SectionHeader title="Route" />
@@ -153,16 +194,18 @@ export default function SearchScreen() {
           <GroupedCard>
             <NavRow
               icon="calendar-outline"
-              label={isRoundTrip ? "Leaving" : "When"}
+              label={isExact ? "Dates" : isFlexible ? "Between" : "When"}
               value={
                 startDate && endDate
-                  ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+                  ? isExact
+                    ? `${formatDate(startDate)} → ${formatDate(endDate)}`
+                    : `${formatDate(startDate)} – ${formatDate(endDate)}`
                   : undefined
               }
               placeholder="Select dates"
               onPress={() => router.push("/date-picker")}
             />
-            {isRoundTrip ? (
+            {isFlexible ? (
               <NavRow
                 icon="time-outline"
                 label="Days away"
@@ -177,9 +220,13 @@ export default function SearchScreen() {
             ) : null}
           </GroupedCard>
           <Text style={[styles.footnote, { color: colors.textSecondary }]}>
-            {isRoundTrip
-              ? `We price every departure date against every trip length — ${searchCount} searches — and show the cheapest combination.`
-              : `We check every day in the range, up to ${MAX_RANGE_DAYS} days, and show you the cheapest.`}
+            {!isRoundTrip
+              ? `We check every day in the range, up to ${MAX_RANGE_DAYS} days, and show you the cheapest.`
+              : isExact
+                ? `Pricing this exact ${nightsBetween(startDate, endDate)}-day trip.`
+                : willSample
+                  ? `Your window is wide, so we'll sample ${searchCount} trips evenly across it to find the cheapest stretch.`
+                  : `We price every departure date against every trip length — ${searchCount} searches — and show the cheapest combination.`}
           </Text>
         </View>
 
@@ -214,6 +261,12 @@ const styles = StyleSheet.create({
   },
   swapText: {
     fontSize: 15,
+  },
+  question: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginLeft: 4,
   },
   footnote: {
     fontSize: 13,

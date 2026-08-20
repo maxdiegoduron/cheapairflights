@@ -11,6 +11,10 @@ export interface PriceSearchResponse {
   origin: string;
   destination: string;
   roundTrip: boolean;
+  /** True when the window was too wide to price exhaustively. */
+  sampled: boolean;
+  checkedCombinations: number;
+  totalCombinations: number;
   results: FlightPriceResult[];
 }
 

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { EmptyState, ErrorBanner } from "../src/components/ui";
+import { EmptyState, ErrorBanner, SegmentedControl } from "../src/components/ui";
 import { useAuth } from "../src/supabase/AuthContext";
 import { deleteSavedRoute, saveRoute } from "../src/supabase/savedRoutes";
 import { useTheme } from "../src/theme/ThemeContext";
@@ -28,6 +28,17 @@ function formatPrice(price: number, currency: string): string {
 /** Unique per result row: one departure date can appear at several trip lengths. */
 function resultKey(item: FlightPriceResult): string {
   return `${item.date}|${item.returnDate ?? ""}`;
+}
+
+type SortMode = "value" | "price" | "days";
+
+/** Trip length in days; one-way results count as a single day. */
+function tripDays(item: FlightPriceResult): number {
+  return item.returnDate ? Math.max(1, nightsBetween(item.date, item.returnDate)) : 1;
+}
+
+function pricePerDay(item: FlightPriceResult): number {
+  return item.price / tripDays(item);
 }
 
 function notify(message: string) {
@@ -58,10 +69,27 @@ export default function ResultsScreen() {
     }
   }, [data]);
 
-  const sorted = useMemo<FlightPriceResult[]>(
-    () => (response ? [...response.results].sort((a, b) => a.price - b.price) : []),
-    [response]
+  // Round trips default to best value, which favours longer trips; a one-way
+  // has no trip length to weigh, so plain price is the only sensible order.
+  const [sortMode, setSortMode] = useState<SortMode>(
+    response?.roundTrip ? "value" : "price"
   );
+
+  const sorted = useMemo<FlightPriceResult[]>(() => {
+    if (!response) return [];
+    const items = [...response.results];
+
+    switch (sortMode) {
+      case "price":
+        return items.sort((a, b) => a.price - b.price);
+      case "days":
+        // Longest trip first, then cheapest among equally long trips.
+        return items.sort((a, b) => tripDays(b) - tripDays(a) || a.price - b.price);
+      case "value":
+      default:
+        return items.sort((a, b) => pricePerDay(a) - pricePerDay(b) || a.price - b.price);
+    }
+  }, [response, sortMode]);
 
   async function onToggleSave(item: FlightPriceResult) {
     if (!user || !response) {
@@ -110,7 +138,15 @@ export default function ResultsScreen() {
     );
   }
 
-  const cheapestKey = resultKey(sorted[0]);
+  // The top row is the winner under whichever sort is active, so the badge
+  // names that criterion rather than always claiming "cheapest".
+  const topKey = resultKey(sorted[0]);
+  const topLabel =
+    !response.roundTrip || sortMode === "price"
+      ? "Cheapest"
+      : sortMode === "days"
+        ? "Longest"
+        : "Best value";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -119,10 +155,27 @@ export default function ResultsScreen() {
           {response.origin} → {response.destination}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {sorted.length} {response.roundTrip ? "trips" : sorted.length === 1 ? "date" : "dates"} ·
-          cheapest first
+          {response.sampled
+            ? `${sorted.length} trips · sampled from ${response.totalCombinations} across your window`
+            : `${sorted.length} ${
+                response.roundTrip ? "trips" : sorted.length === 1 ? "date" : "dates"
+              }`}
         </Text>
       </View>
+
+      {response.roundTrip ? (
+        <View style={styles.sortWrap}>
+          <SegmentedControl<SortMode>
+            options={[
+              { value: "value", label: "Best value" },
+              { value: "price", label: "Lowest price" },
+              { value: "days", label: "Most days" },
+            ]}
+            value={sortMode}
+            onChange={setSortMode}
+          />
+        </View>
+      ) : null}
 
       {error ? (
         <View style={styles.bannerWrap}>
@@ -136,7 +189,7 @@ export default function ResultsScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const key = resultKey(item);
-          const isCheapest = key === cheapestKey;
+          const isCheapest = key === topKey;
           const isSaved = Boolean(savedIds[key]);
 
           return (
@@ -169,13 +222,16 @@ export default function ResultsScreen() {
                   </Text>
                   {isCheapest ? (
                     <View style={[styles.badge, { backgroundColor: colors.successBg }]}>
-                      <Text style={[styles.badgeText, { color: colors.success }]}>Cheapest</Text>
+                      <Text style={[styles.badgeText, { color: colors.success }]}>{topLabel}</Text>
                     </View>
                   ) : null}
                 </View>
                 <Text style={[styles.airline, { color: colors.textSecondary }]}>
                   {[
-                    item.returnDate ? `${nightsBetween(item.date, item.returnDate)} days` : null,
+                    item.returnDate ? `${tripDays(item)} days` : null,
+                    item.returnDate
+                      ? `${formatPrice(Math.round(pricePerDay(item)), item.currency)}/day`
+                      : null,
                     item.airline,
                   ]
                     .filter(Boolean)
@@ -236,6 +292,10 @@ const styles = StyleSheet.create({
   bannerWrap: {
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  sortWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
   },
   list: {
     padding: 16,

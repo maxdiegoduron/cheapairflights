@@ -21,8 +21,27 @@ const SECTIONS: {
     title: "Search round trip",
     steps: [
       "Switch the toggle at the top from One-way to Round trip.",
-      "Pick the range of dates you could leave, then tap Days away to set how long you're staying — a range like 5 to 7 days works well.",
-      "We price every departure date against every trip length and show the cheapest combination, so you can see whether leaving a day earlier or staying a day longer saves money.",
+      "We'll ask whether you know your exact dates. Answer Yes, I do, then tap your departure date and your return date on the calendar.",
+      "You get one price for exactly that trip, including the airline and a link to book it.",
+    ],
+  },
+  {
+    icon: "calendar-outline",
+    title: "When your dates are flexible",
+    steps: [
+      "On a round trip, answer No, I'm flexible instead.",
+      "Set the window you'd consider travelling in — it can be months wide, October through February, say — then tap Days away for how long you want to be gone, like 5 to 7 days.",
+      "We try every trip length against each departure date and rank the combinations, so you can see which stretch of the calendar is cheapest.",
+      "Checking every date across months would take hundreds of searches, so on a wide window we sample departure dates evenly across it. Once you spot the cheap weeks, search those directly to pin down exact dates.",
+    ],
+  },
+  {
+    icon: "swap-vertical",
+    title: "Sort your results",
+    steps: [
+      "Best value ranks by price per day, so a longer trip at a slightly higher price can beat a short cheap one.",
+      "Lowest price ranks by what you'd actually pay in total.",
+      "Most days puts the longest trips first, cheapest among equals.",
     ],
   },
   {

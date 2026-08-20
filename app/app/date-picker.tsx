@@ -5,6 +5,9 @@ import { Calendar } from "../src/components/Calendar";
 import { ErrorBanner, PrimaryButton } from "../src/components/ui";
 import {
   MAX_RANGE_DAYS,
+  MAX_STAY_DAYS,
+  MAX_WINDOW_DAYS,
+  nightsBetween,
   rangeLengthDays,
   setDateRange,
   useRouteSelection,
@@ -28,6 +31,14 @@ export default function DatePickerScreen() {
   const [end, setEnd] = useState<string | null>(selection.endDate || null);
   const [error, setError] = useState<string | null>(null);
 
+  // Three shapes: an exact round trip (depart → return), a flexible round
+  // trip (a window to sample across), or a one-way (every date priced, so
+  // the range stays short).
+  const isRoundTrip = selection.tripType === "roundtrip";
+  const isExact = isRoundTrip && selection.dateMode === "exact";
+  const isWindow = isRoundTrip && selection.dateMode === "flexible";
+  const maxDays = isExact ? MAX_STAY_DAYS + 1 : isWindow ? MAX_WINDOW_DAYS : MAX_RANGE_DAYS;
+
   function onSelect(date: string) {
     setError(null);
 
@@ -39,8 +50,12 @@ export default function DatePickerScreen() {
       return;
     }
 
-    if (rangeLengthDays(start, date) > MAX_RANGE_DAYS) {
-      setError(`Pick a range of ${MAX_RANGE_DAYS} days or fewer — that's ${rangeLengthDays(start, date)}.`);
+    if (rangeLengthDays(start, date) > maxDays) {
+      setError(
+        isExact
+          ? `Trips can be up to ${MAX_STAY_DAYS} days — that's ${nightsBetween(start, date)}.`
+          : `Pick a range of ${maxDays} days or fewer — that's ${rangeLengthDays(start, date)}.`
+      );
       return;
     }
 
@@ -49,7 +64,11 @@ export default function DatePickerScreen() {
 
   function onDone() {
     if (!start) {
-      setError("Pick your earliest date.");
+      setError(isExact ? "Pick your departure date." : "Pick your earliest date.");
+      return;
+    }
+    if (isExact && !end) {
+      setError("Pick your return date.");
       return;
     }
     // A single tapped day means a one-day search.
@@ -59,9 +78,17 @@ export default function DatePickerScreen() {
 
   const summary = start
     ? end
-      ? `${formatDate(start)} – ${formatDate(end)} · ${rangeLengthDays(start, end)} days`
-      : `${formatDate(start)} — now pick the latest date`
-    : "Pick your earliest date";
+      ? isExact
+        ? `${formatDate(start)} → ${formatDate(end)} · ${nightsBetween(start, end)} days away`
+        : `${formatDate(start)} – ${formatDate(end)} · ${rangeLengthDays(start, end)}-day ${
+            isWindow ? "window" : "range"
+          }`
+      : isExact
+        ? `${formatDate(start)} — now pick your return date`
+        : `${formatDate(start)} — now pick the ${isWindow ? "end of your window" : "latest date"}`
+    : isExact
+      ? "Pick your departure date"
+      : `Pick the ${isWindow ? "start of your travel window" : "earliest date"}`;
 
   return (
     <ScrollView
@@ -83,7 +110,11 @@ export default function DatePickerScreen() {
       ) : null}
 
       <Text style={[styles.footnote, { color: colors.textTertiary }]}>
-        We check every day in your range, so a wider range costs more of the free search quota.
+        {isExact
+          ? "Tap your departure date, then your return date."
+          : isWindow
+            ? "Pick as wide a window as you like — months, even. We sample departure dates evenly across it to find the cheapest stretch."
+            : "We check every day in your range, so a wider range costs more of the free search quota."}
       </Text>
 
       <View style={styles.section}>
