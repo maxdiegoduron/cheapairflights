@@ -70,6 +70,17 @@ Full plan: see the plan approved on 2026-08-20 (steps, architecture, decisions) 
 - **Supabase migration pending**: `supabase/002_add_return_date.sql` adds the nullable `return_date` column. **Must be run in the Supabase SQL editor or saving a round trip will fail.**
 - Help tab rewritten to cover round trips, the calendar, airport search, and dark mode.
 
+### 2026-08-20 — Logo, wide-window search, ranking
+- **Branding**: Duron Express logo now replaces the title in every header. Source art was a stacked lockup on a light background; `app/assets/logo-header.png` recomposes wing + wordmark side by side (~7:1) for nav-bar use, `logo.png` keeps the stacked form. Both are luminance-derived alpha masks so dark mode just re-tints white — **the alpha floor (60) matters**: a lower threshold left the source's faint background gradient slightly opaque, which showed as a grey box once tinted. Screens that lost their header title carry it in the body instead (e.g. airport picker's "Flying from").
+- **Round trip now asks "Do you know your exact dates?"** — `dateMode: "exact" | "flexible"` in `routeSelection.ts`.
+  - *Exact*: pick departure + return, one trip priced. Sent to the API as a single-day window with `minStayDays === maxStayDays === nights`.
+  - *Flexible*: a travel window (up to 365 days) + a "days away" range. This is the Oct→Feb use case.
+- **Sampling** (`sampleEvenly` in `priceSearch.ts`, exported for testing): a wide window would be ~450 provider calls, so departure dates are thinned evenly to fit `MAX_COMBINATIONS` (30), keeping all stay lengths per sampled date so trip lengths stay comparable. Always keeps first and last date. Verified by unit test: 151 days × 3 lengths → 30 combos spanning d0–d150, no duplicates.
+  - The old behaviour (reject searches over 30 combinations) is **gone** for round trips — the route no longer caps them, it samples. One-way is still capped at 10 days since it prices exhaustively.
+  - `checkedCount()` in `routeSelection.ts` mirrors the backend's sampling math so the UI can show the true call count before searching. **Keep it in sync with the server.**
+- **Ranking**: results have a sort control (round trip only) — Best value (price ÷ days, favours longer trips), Lowest price, Most days. The top-row badge names the active criterion instead of always saying "Cheapest".
+- Help tab covers exact vs flexible dates, wide windows/sampling, and the sort modes.
+
 ## Next Steps
 
 **Outstanding user actions (both block features):**
