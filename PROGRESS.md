@@ -51,6 +51,15 @@ Full plan: see the plan approved on 2026-08-20 (steps, architecture, decisions) 
 - Verified: typecheck clean, picker searches by city ("new york" → JFK, LGA) and by code ("lax"), selections populate as "New York (JFK)", and a live search with picked airports still returns results. Zero console errors.
 - Testing gotcha for future sessions: in Playwright, `text=` does NOT match placeholder attributes — use `getByPlaceholder()`. Cost a couple of false failures here.
 
+### 2026-08-20 — Hosting prep + git
+- Goal: host the app so it's usable without the laptop. Chosen approach: hosted website + iPhone "Add to Home Screen" (no Apple fee). Backend and frontend both on Render free tier. Deploy plan lives in the approved plan file.
+- **Git is now set up.** Repo: `https://github.com/maxdiegoduron/cheapairflights.git`, branch `main`, initial commit `60209e6` (56 files). Identity set **locally to this repo**: `maxdi` / `maxdiegoduron@gmail.com`. `core.autocrlf=false` set locally (project was authored with LF).
+- Secrets verified excluded before committing: real `.env` files are gitignored and the SerpApi key appears in zero staged lines. **Re-verify this on any future commit** — the key is still live on disk.
+- Config changes for deploy: root `.gitignore` added; `app/package.json.sdk57-backup` + lockfile backup deleted; `engines: { node: ">=20" }` added to `server/package.json`; `app/app.json` gained `web.bundler: "metro"` + `web.output: "single"`; `build:web` script added.
+- **PWA**: `app/public/manifest.json`, `apple-touch-icon.png` (180px) and `icon-512.png` generated from `app/assets/icon.png`. Note `+html.tsx` does **not** work with `output: "single"` (static-render only) — it was removed and replaced by `app/scripts/postbuild-web.js`, which injects the iOS meta tags and `viewport-fit=cover` into `dist/index.html` after export. That script runs as part of `npm run build:web`.
+- **Production build verified end-to-end**: exported `dist/`, served it locally with SPA fallback, and confirmed live search (real prices + airlines) and Supabase signup both work against the real build.
+- **Key gotcha confirmed by testing**: the prod build's first search failed purely because `ALLOWED_ORIGIN` didn't match the serving origin. CORS is the most likely deploy failure. Deploy order must be: backend → frontend (needs backend URL at build time) → set backend `ALLOWED_ORIGIN` to the frontend URL → redeploy backend.
+
 ## Next Steps
 
 1. ~~Phone test~~ — **done 2026-08-20. Confirmed working on the user's real iPhone via Expo Go on SDK 54.** Stay on SDK 54 unless there's a strong reason to move; SDK 57 was rejected by their Expo Go.
