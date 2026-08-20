@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HeaderLogo } from "../../src/components/ui";
 import { useTheme } from "../../src/theme/ThemeContext";
 
 function ThemeToggleButton() {
@@ -41,7 +42,8 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 12, fontWeight: "500", marginTop: 2 },
         tabBarIconStyle: { marginTop: 0 },
         headerStyle: { backgroundColor: colors.surface },
-        headerTitleStyle: { color: colors.textPrimary, fontSize: 17, fontWeight: "600" },
+        headerTitle: () => <HeaderLogo />,
+        headerTitleAlign: "left",
         headerShadowVisible: false,
         headerRight: () => <ThemeToggleButton />,
         sceneStyle: { backgroundColor: colors.background },

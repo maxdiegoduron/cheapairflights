@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
-import { useLayoutEffect, useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Airport, searchAirports } from "../src/data/airports";
 import { AirportField, setAirport } from "../src/state/routeSelection";
@@ -8,15 +8,10 @@ import { useTheme } from "../src/theme/ThemeContext";
 
 export default function AirportPickerScreen() {
   const { colors } = useTheme();
-  const navigation = useNavigation();
   const { field } = useLocalSearchParams<{ field: AirportField }>();
 
   const [query, setQuery] = useState("");
   const results = useMemo(() => searchAirports(query), [query]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: field === "destination" ? "Flying to" : "Flying from" });
-  }, [navigation, field]);
 
   function onSelect(airport: Airport) {
     setAirport(field === "destination" ? "destination" : "origin", airport.code);
@@ -25,6 +20,10 @@ export default function AirportPickerScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.heading, { color: colors.textPrimary }]}>
+        {field === "destination" ? "Flying to" : "Flying from"}
+      </Text>
+
       <View style={[styles.searchWrap, { backgroundColor: colors.fill }]}>
         <Ionicons name="search" size={17} color={colors.textSecondary} />
         <TextInput
@@ -86,12 +85,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  heading: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginHorizontal: 16,
+    marginTop: 14,
+  },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 10,
     marginBottom: 8,
     paddingHorizontal: 10,
     height: 36,

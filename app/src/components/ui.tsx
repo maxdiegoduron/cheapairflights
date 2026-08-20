@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +11,25 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+
+/**
+ * Brand lockup shown in place of the screen title in every header. The
+ * artwork is a single-colour transparent PNG, so dark mode just re-tints it
+ * rather than needing a second file.
+ */
+export function HeaderLogo() {
+  const { mode } = useTheme();
+
+  return (
+    <Image
+      source={require("../../assets/logo-header.png")}
+      style={[styles.logo, mode === "dark" ? { tintColor: "#FFFFFF" } : null]}
+      resizeMode="contain"
+      accessibilityRole="image"
+      accessibilityLabel="Duron Express"
+    />
+  );
+}
 
 export function SectionHeader({ title }: { title: string }) {
   const { colors } = useTheme();
@@ -213,6 +233,11 @@ export function EmptyState({
 }
 
 const styles = StyleSheet.create({
+  logo: {
+    // Source art is 667x96 (~6.95:1).
+    width: 167,
+    height: 24,
+  },
   sectionHeader: {
     fontSize: 13,
     fontWeight: "400",
