@@ -83,10 +83,10 @@ Full plan: see the plan approved on 2026-08-20 (steps, architecture, decisions) 
 
 ## Next Steps
 
-**Outstanding user actions (both block features):**
-1. **Run `supabase/002_add_return_date.sql`** in the Supabase SQL editor — without it, saving a round-trip flight fails.
-2. **Add the SPA rewrite rule** on the Render static site (Redirects/Rewrites → Source `/*`, Destination `/index.html`, Action **Rewrite**). Without it, direct links and refreshes on `/account`, `/help`, etc. return 404. This has been pending for a while and is still not applied.
-3. **Lock down CORS**: the backend's `ALLOWED_ORIGIN` is still `*` from initial setup. Set it to `https://cheapairflights.onrender.com` and redeploy.
+**Outstanding user action:**
+1. ~~`supabase/002_add_return_date.sql`~~ — **done 2026-08-20**, verified by saving a real round trip end to end (appeared in the Saved tab as "Thu, Sep 10 → Wed, Sep 16 · Alaska · $356").
+2. ~~SPA rewrite rule~~ — **done 2026-08-20.** `/account`, `/help`, `/subscriptions` and refreshes all render on the live site. This also fixed the earlier unexplained `/manifest.json` 404 (real files take precedence over the rewrite), so the PWA/home-screen setup is now fully working.
+3. **Lock down CORS** — still outstanding. The backend's `ALLOWED_ORIGIN` is still `*` from initial setup. Set it to `https://cheapairflights.onrender.com` in the Render dashboard and redeploy the web service.
 
 **Then:**
 4. ~~Phone test~~ — **done 2026-08-20. Confirmed working on the user's real iPhone via Expo Go on SDK 54.** Stay on SDK 54 unless there's a strong reason to move; SDK 57 was rejected by their Expo Go.
