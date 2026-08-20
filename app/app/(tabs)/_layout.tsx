@@ -32,11 +32,14 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.separator,
-          height: 52 + insets.bottom,
-          paddingBottom: insets.bottom,
+          // Mobile browsers report no bottom inset but still overlay their own
+          // chrome, so keep a floor of breathing room under the labels.
+          height: 60 + Math.max(insets.bottom, 8),
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
         },
-        tabBarLabelStyle: { fontSize: 10, marginBottom: 4 },
-        tabBarIconStyle: { marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "500", marginTop: 2 },
+        tabBarIconStyle: { marginTop: 0 },
         headerStyle: { backgroundColor: colors.surface },
         headerTitleStyle: { color: colors.textPrimary, fontSize: 17, fontWeight: "600" },
         headerShadowVisible: false,

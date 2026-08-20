@@ -28,6 +28,10 @@ function RootStack() {
           name="airport-picker"
           options={{ presentation: "modal", title: "Select airport" }}
         />
+        <Stack.Screen
+          name="date-picker"
+          options={{ presentation: "modal", title: "Select dates" }}
+        />
       </Stack>
     </>
   );

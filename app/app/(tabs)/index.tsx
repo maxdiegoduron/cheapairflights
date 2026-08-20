@@ -5,40 +5,36 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { searchPrices } from "../../src/api/client";
 import {
   ErrorBanner,
-  FieldRow,
   GroupedCard,
   NavRow,
   PrimaryButton,
   SectionHeader,
 } from "../../src/components/ui";
 import { findAirport } from "../../src/data/airports";
-import { swapAirports as swapSelection, useRouteSelection } from "../../src/state/routeSelection";
+import {
+  MAX_RANGE_DAYS,
+  rangeLengthDays,
+  swapAirports as swapSelection,
+  useRouteSelection,
+} from "../../src/state/routeSelection";
 import { useTheme } from "../../src/theme/ThemeContext";
 
 const IATA_CODE = /^[A-Za-z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_RANGE_DAYS = 10;
-const DEFAULT_RANGE_DAYS = 7;
 
-function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function defaultDates(): { start: string; end: string } {
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  const end = new Date(start);
-  end.setDate(end.getDate() + DEFAULT_RANGE_DAYS - 1);
-  return { start: toISODate(start), end: toISODate(end) };
+function formatDate(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(date + "T00:00:00Z"));
 }
 
 export default function SearchScreen() {
   const { colors } = useTheme();
-  const defaults = defaultDates();
 
-  const { origin, destination } = useRouteSelection();
-  const [startDate, setStartDate] = useState(defaults.start);
-  const [endDate, setEndDate] = useState(defaults.end);
+  const { origin, destination, startDate, endDate } = useRouteSelection();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,15 +48,11 @@ export default function SearchScreen() {
     if (!IATA_CODE.test(origin)) return "Choose the airport you're flying from.";
     if (!IATA_CODE.test(destination)) return "Choose the airport you're flying to.";
     if (origin.toUpperCase() === destination.toUpperCase()) return "Origin and destination can't be the same.";
-    if (!DATE.test(startDate) || !DATE.test(endDate)) return "Dates must be in YYYY-MM-DD format.";
+    if (!DATE.test(startDate) || !DATE.test(endDate)) return "Choose your travel dates.";
     if (startDate > endDate) return "The earliest date must come before the latest date.";
-
-    const days =
-      Math.round(
-        (new Date(endDate + "T00:00:00Z").getTime() - new Date(startDate + "T00:00:00Z").getTime()) /
-          (24 * 60 * 60 * 1000)
-      ) + 1;
-    if (days > MAX_RANGE_DAYS) return `Choose a range of ${MAX_RANGE_DAYS} days or fewer.`;
+    if (rangeLengthDays(startDate, endDate) > MAX_RANGE_DAYS) {
+      return `Choose a range of ${MAX_RANGE_DAYS} days or fewer.`;
+    }
 
     return null;
   }
@@ -135,19 +127,16 @@ export default function SearchScreen() {
         <View style={styles.section}>
           <SectionHeader title="Dates" />
           <GroupedCard>
-            <FieldRow
+            <NavRow
               icon="calendar-outline"
-              label="Earliest"
-              value={startDate}
-              onChangeText={setStartDate}
-              placeholder="YYYY-MM-DD"
-            />
-            <FieldRow
-              icon="calendar"
-              label="Latest"
-              value={endDate}
-              onChangeText={setEndDate}
-              placeholder="YYYY-MM-DD"
+              label="When"
+              value={
+                startDate && endDate
+                  ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+                  : undefined
+              }
+              placeholder="Select dates"
+              onPress={() => router.push("/date-picker")}
             />
           </GroupedCard>
           <Text style={[styles.footnote, { color: colors.textSecondary }]}>
