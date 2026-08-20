@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Server (direct)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/server",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "args": ["${workspaceFolder}/server/src/index.ts"],
+      "envFile": "${workspaceFolder}/server/.env",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug Server (watch mode)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "debug"],
+      "envFile": "${workspaceFolder}/server/.env",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal",
+      "restart": true,
+      "autoAttachChildProcesses": true
+    },
+    {
+      "name": "Debug Web (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:8081",
+      "webRoot": "${workspaceFolder}/app"
+    }
+  ]
+}

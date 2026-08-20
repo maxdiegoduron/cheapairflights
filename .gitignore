@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+web-build/
+*.tsbuildinfo
+
+# Expo
+.expo/
+expo-env.d.ts
+
+# Runtime data (price cache is disposable)
+data/*.csv
+
+# Leftovers from the SDK 57 -> 54 downgrade
+*.sdk57-backup
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.metro-health-check*

@@ -1,0 +1,9 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // SDK 54's bundled types don't declare `process`, which we read
+    // EXPO_PUBLIC_* env vars from.
+    "types": ["node"]
+  }
+}
