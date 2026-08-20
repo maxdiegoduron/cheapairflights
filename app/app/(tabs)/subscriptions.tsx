@@ -124,6 +124,7 @@ export default function SubscriptionsScreen() {
                   origin: item.origin,
                   destination: item.destination,
                   date: item.flight_date,
+                  returnDate: item.return_date ?? "",
                   price: String(item.price),
                   currency: item.currency,
                   airline: item.airline ?? "",
@@ -140,7 +141,9 @@ export default function SubscriptionsScreen() {
                 {item.origin} → {item.destination}
               </Text>
               <Text style={[styles.meta, { color: colors.textSecondary }]}>
-                {formatDate(item.flight_date)}
+                {item.return_date
+                  ? `${formatDate(item.flight_date)} → ${formatDate(item.return_date)}`
+                  : formatDate(item.flight_date)}
                 {item.airline ? ` · ${item.airline}` : ""}
               </Text>
             </View>

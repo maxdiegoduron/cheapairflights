@@ -3,7 +3,7 @@ import { useLocalSearchParams } from "expo-router";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import { GroupedCard, PrimaryButton, SectionHeader } from "../src/components/ui";
 import { useTheme } from "../src/theme/ThemeContext";
-import { googleFlightsUrl } from "../src/types/flight";
+import { googleFlightsUrl, nightsBetween } from "../src/types/flight";
 
 function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -28,14 +28,17 @@ function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMa
 
 export default function FlightDetailScreen() {
   const { colors } = useTheme();
-  const { origin, destination, date, price, currency, airline } = useLocalSearchParams<{
+  const { origin, destination, date, returnDate, price, currency, airline } = useLocalSearchParams<{
     origin: string;
     destination: string;
     date: string;
+    returnDate?: string;
     price: string;
     currency: string;
     airline: string;
   }>();
+
+  const isRoundTrip = Boolean(returnDate);
 
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -56,9 +59,23 @@ export default function FlightDetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Flight" />
+        <SectionHeader title={isRoundTrip ? "Round trip" : "One-way"} />
         <GroupedCard>
-          <DetailRow icon="calendar" label="Date" value={formatDate(date)} />
+          <DetailRow
+            icon="airplane"
+            label={isRoundTrip ? "Depart" : "Date"}
+            value={formatDate(date)}
+          />
+          {isRoundTrip ? (
+            <DetailRow icon="airplane-outline" label="Return" value={formatDate(returnDate!)} />
+          ) : null}
+          {isRoundTrip ? (
+            <DetailRow
+              icon="time-outline"
+              label="Days away"
+              value={`${nightsBetween(date, returnDate!)} days`}
+            />
+          ) : null}
           <DetailRow icon="business" label="Airline" value={airline || "Not listed"} />
           <DetailRow icon="pricetag" label="Price" value={formattedPrice} />
         </GroupedCard>
@@ -67,7 +84,9 @@ export default function FlightDetailScreen() {
       <View style={styles.section}>
         <PrimaryButton
           title="View on Google Flights"
-          onPress={() => Linking.openURL(googleFlightsUrl(origin, destination, date))}
+          onPress={() =>
+            Linking.openURL(googleFlightsUrl(origin, destination, date, returnDate || null))
+          }
         />
         <Text style={[styles.footnote, { color: colors.textTertiary }]}>
           Opens this route and date on Google Flights, where you can book with the airline.

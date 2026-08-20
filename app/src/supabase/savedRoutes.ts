@@ -5,6 +5,8 @@ export interface SavedRoute {
   origin: string;
   destination: string;
   flight_date: string;
+  /** Set only for round trips. */
+  return_date: string | null;
   price: number;
   currency: string;
   airline: string | null;

@@ -6,7 +6,7 @@ import { EmptyState, ErrorBanner } from "../src/components/ui";
 import { useAuth } from "../src/supabase/AuthContext";
 import { deleteSavedRoute, saveRoute } from "../src/supabase/savedRoutes";
 import { useTheme } from "../src/theme/ThemeContext";
-import { FlightPriceResult, PriceSearchResponse } from "../src/types/flight";
+import { FlightPriceResult, nightsBetween, PriceSearchResponse } from "../src/types/flight";
 
 function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -25,6 +25,11 @@ function formatPrice(price: number, currency: string): string {
   }).format(price);
 }
 
+/** Unique per result row: one departure date can appear at several trip lengths. */
+function resultKey(item: FlightPriceResult): string {
+  return `${item.date}|${item.returnDate ?? ""}`;
+}
+
 function notify(message: string) {
   if (Platform.OS === "web") {
     window.alert(message);
@@ -38,8 +43,9 @@ export default function ResultsScreen() {
   const { user } = useAuth();
   const { data } = useLocalSearchParams<{ data: string }>();
 
-  // Maps a result date to its saved_routes row id, so the bookmark can toggle
-  // back off without a refetch.
+  // Maps a result's key to its saved_routes row id, so the bookmark can toggle
+  // back off without a refetch. Keyed on departure + return because a round
+  // trip search returns several trip lengths off the same departure date.
   const [savedIds, setSavedIds] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -64,13 +70,14 @@ export default function ResultsScreen() {
     }
 
     setError(null);
-    const existingId = savedIds[item.date];
+    const key = resultKey(item);
+    const existingId = savedIds[key];
 
     try {
       if (existingId) {
         setSavedIds((prev) => {
           const next = { ...prev };
-          delete next[item.date];
+          delete next[key];
           return next;
         });
         await deleteSavedRoute(existingId);
@@ -79,11 +86,12 @@ export default function ResultsScreen() {
           origin: response.origin,
           destination: response.destination,
           flight_date: item.date,
+          return_date: item.returnDate,
           price: item.price,
           currency: item.currency,
           airline: item.airline,
         });
-        setSavedIds((prev) => ({ ...prev, [item.date]: saved.id }));
+        setSavedIds((prev) => ({ ...prev, [key]: saved.id }));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't update your saved flights.");
@@ -102,7 +110,7 @@ export default function ResultsScreen() {
     );
   }
 
-  const cheapestDate = sorted[0].date;
+  const cheapestKey = resultKey(sorted[0]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -111,7 +119,8 @@ export default function ResultsScreen() {
           {response.origin} → {response.destination}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {sorted.length} {sorted.length === 1 ? "date" : "dates"} · cheapest first
+          {sorted.length} {response.roundTrip ? "trips" : sorted.length === 1 ? "date" : "dates"} ·
+          cheapest first
         </Text>
       </View>
 
@@ -123,11 +132,12 @@ export default function ResultsScreen() {
 
       <FlatList
         data={sorted}
-        keyExtractor={(item) => item.date}
+        keyExtractor={resultKey}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
-          const isCheapest = item.date === cheapestDate;
-          const isSaved = Boolean(savedIds[item.date]);
+          const key = resultKey(item);
+          const isCheapest = key === cheapestKey;
+          const isSaved = Boolean(savedIds[key]);
 
           return (
             <Pressable
@@ -138,6 +148,7 @@ export default function ResultsScreen() {
                     origin: response.origin,
                     destination: response.destination,
                     date: item.date,
+                    returnDate: item.returnDate ?? "",
                     price: String(item.price),
                     currency: item.currency,
                     airline: item.airline ?? "",
@@ -152,7 +163,9 @@ export default function ResultsScreen() {
               <View style={styles.rowMain}>
                 <View style={styles.dateLine}>
                   <Text style={[styles.date, { color: colors.textPrimary }]}>
-                    {formatDate(item.date)}
+                    {item.returnDate
+                      ? `${formatDate(item.date)} → ${formatDate(item.returnDate)}`
+                      : formatDate(item.date)}
                   </Text>
                   {isCheapest ? (
                     <View style={[styles.badge, { backgroundColor: colors.successBg }]}>
@@ -160,9 +173,14 @@ export default function ResultsScreen() {
                     </View>
                   ) : null}
                 </View>
-                {item.airline ? (
-                  <Text style={[styles.airline, { color: colors.textSecondary }]}>{item.airline}</Text>
-                ) : null}
+                <Text style={[styles.airline, { color: colors.textSecondary }]}>
+                  {[
+                    item.returnDate ? `${nightsBetween(item.date, item.returnDate)} days` : null,
+                    item.airline,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
               </View>
 
               <Text

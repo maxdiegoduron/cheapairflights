@@ -58,6 +58,50 @@ export function FieldRow({ icon, label, ...inputProps }: FieldRowProps) {
   );
 }
 
+/** iOS-style segmented control. */
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[styles.segmentWrap, { backgroundColor: colors.fill }]}>
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            accessibilityLabel={option.label}
+            style={({ pressed }) => [
+              styles.segment,
+              selected && { backgroundColor: colors.surface },
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                { color: colors.textPrimary, fontWeight: selected ? "600" : "400" },
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Tappable row that opens another screen, iOS-style with a trailing chevron. */
 export function NavRow({
   icon,
@@ -208,6 +252,21 @@ const styles = StyleSheet.create({
     textAlign: "right",
     flexShrink: 1,
     marginRight: 6,
+  },
+  segmentWrap: {
+    flexDirection: "row",
+    borderRadius: 9,
+    padding: 2,
+  },
+  segment: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 7,
+    borderRadius: 7,
+  },
+  segmentText: {
+    fontSize: 15,
   },
   button: {
     borderRadius: 12,

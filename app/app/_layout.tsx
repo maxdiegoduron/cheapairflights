@@ -32,6 +32,10 @@ function RootStack() {
           name="date-picker"
           options={{ presentation: "modal", title: "Select dates" }}
         />
+        <Stack.Screen
+          name="stay-picker"
+          options={{ presentation: "modal", title: "Trip length" }}
+        />
       </Stack>
     </>
   );

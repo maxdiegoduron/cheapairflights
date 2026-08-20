@@ -9,12 +9,17 @@ import {
   NavRow,
   PrimaryButton,
   SectionHeader,
+  SegmentedControl,
 } from "../../src/components/ui";
 import { findAirport } from "../../src/data/airports";
 import {
+  combinationCount,
+  MAX_COMBINATIONS,
   MAX_RANGE_DAYS,
   rangeLengthDays,
+  setTripType,
   swapAirports as swapSelection,
+  TripType,
   useRouteSelection,
 } from "../../src/state/routeSelection";
 import { useTheme } from "../../src/theme/ThemeContext";
@@ -34,9 +39,13 @@ function formatDate(date: string): string {
 export default function SearchScreen() {
   const { colors } = useTheme();
 
-  const { origin, destination, startDate, endDate } = useRouteSelection();
+  const selection = useRouteSelection();
+  const { origin, destination, startDate, endDate, tripType, minStayDays, maxStayDays } = selection;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isRoundTrip = tripType === "roundtrip";
+  const searchCount = combinationCount(selection);
 
   function airportLabel(code: string): string | undefined {
     if (!code) return undefined;
@@ -52,6 +61,9 @@ export default function SearchScreen() {
     if (startDate > endDate) return "The earliest date must come before the latest date.";
     if (rangeLengthDays(startDate, endDate) > MAX_RANGE_DAYS) {
       return `Choose a range of ${MAX_RANGE_DAYS} days or fewer.`;
+    }
+    if (searchCount > MAX_COMBINATIONS) {
+      return `That's ${searchCount} searches, over the ${MAX_COMBINATIONS} limit. Narrow your dates or trip length.`;
     }
 
     return null;
@@ -73,6 +85,7 @@ export default function SearchScreen() {
         destination: destination.toUpperCase(),
         startDate,
         endDate,
+        ...(isRoundTrip ? { minStayDays, maxStayDays } : {}),
       });
       router.push({ pathname: "/results", params: { data: JSON.stringify(response) } });
     } catch (e) {
@@ -90,6 +103,17 @@ export default function SearchScreen() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.section}>
+          <SegmentedControl<TripType>
+            options={[
+              { value: "oneway", label: "One-way" },
+              { value: "roundtrip", label: "Round trip" },
+            ]}
+            value={tripType}
+            onChange={setTripType}
+          />
+        </View>
+
         <View style={styles.section}>
           <SectionHeader title="Route" />
           <GroupedCard>
@@ -129,7 +153,7 @@ export default function SearchScreen() {
           <GroupedCard>
             <NavRow
               icon="calendar-outline"
-              label="When"
+              label={isRoundTrip ? "Leaving" : "When"}
               value={
                 startDate && endDate
                   ? `${formatDate(startDate)} – ${formatDate(endDate)}`
@@ -138,9 +162,24 @@ export default function SearchScreen() {
               placeholder="Select dates"
               onPress={() => router.push("/date-picker")}
             />
+            {isRoundTrip ? (
+              <NavRow
+                icon="time-outline"
+                label="Days away"
+                value={
+                  minStayDays === maxStayDays
+                    ? `${minStayDays} days`
+                    : `${minStayDays}–${maxStayDays} days`
+                }
+                placeholder="Select trip length"
+                onPress={() => router.push("/stay-picker")}
+              />
+            ) : null}
           </GroupedCard>
           <Text style={[styles.footnote, { color: colors.textSecondary }]}>
-            We check every day in the range, up to {MAX_RANGE_DAYS} days, and show you the cheapest.
+            {isRoundTrip
+              ? `We price every departure date against every trip length — ${searchCount} searches — and show the cheapest combination.`
+              : `We check every day in the range, up to ${MAX_RANGE_DAYS} days, and show you the cheapest.`}
           </Text>
         </View>
 

@@ -3,20 +3,28 @@ import path from "path";
 
 const CACHE_DIR = path.join(__dirname, "..", "..", "data");
 const CACHE_FILE = path.join(CACHE_DIR, "priceCache.csv");
-const HEADER = "origin,destination,date,price,currency,airline,expiresAt";
+const HEADER = "origin,destination,date,returnDate,price,currency,airline,expiresAt";
 
 export interface CacheEntry {
   origin: string;
   destination: string;
   date: string;
+  returnDate: string | null;
   price: number;
   currency: string;
   airline: string | null;
   expiresAt: number;
 }
 
-function cacheKey(origin: string, destination: string, date: string): string {
-  return `${origin}|${destination}|${date}`;
+function cacheKey(
+  origin: string,
+  destination: string,
+  date: string,
+  returnDate?: string | null
+): string {
+  // Return date is part of the key: a one-way and a round trip on the same
+  // departure date are different products at different prices.
+  return `${origin}|${destination}|${date}|${returnDate ?? ""}`;
 }
 
 function ensureFile(): void {
@@ -45,13 +53,14 @@ export function loadCache(): Map<string, CacheEntry> {
     const parts = line.split(",");
     if (parts.length !== columnCount) continue;
 
-    const [origin, destination, date, price, currency, airline, expiresAt] = parts;
+    const [origin, destination, date, returnDate, price, currency, airline, expiresAt] = parts;
     if (!origin) continue;
 
-    map.set(cacheKey(origin, destination, date), {
+    map.set(cacheKey(origin, destination, date, returnDate || null), {
       origin,
       destination,
       date,
+      returnDate: returnDate || null,
       price: Number(price),
       currency,
       airline: airline || null,
@@ -70,7 +79,7 @@ export function saveCache(map: Map<string, CacheEntry>): void {
     // stray character can't shift every column in the row.
     const airline = (entry.airline ?? "").replace(/[,\r\n]/g, " ").trim();
     rows.push(
-      `${entry.origin},${entry.destination},${entry.date},${entry.price},${entry.currency},${airline},${entry.expiresAt}`
+      `${entry.origin},${entry.destination},${entry.date},${entry.returnDate ?? ""},${entry.price},${entry.currency},${airline},${entry.expiresAt}`
     );
   }
   fs.writeFileSync(CACHE_FILE, rows.join("\n") + "\n", "utf8");

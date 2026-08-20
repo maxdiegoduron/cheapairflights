@@ -3,6 +3,8 @@ import { env } from "../config/env";
 
 export interface ProviderPriceResult {
   date: string;
+  /** Set only for round trips. */
+  returnDate: string | null;
   price: number;
   currency: string;
   airline: string | null;
@@ -23,26 +25,31 @@ interface SerpApiFlightsResponse {
 }
 
 /**
- * Fetches the cheapest one-way price for a single date from SerpApi's
- * Google Flights engine. Isolated here so the provider can be swapped
- * (e.g. FlightAPI.io, a future Amadeus program) without touching callers.
+ * Fetches the cheapest price for a single departure date from SerpApi's
+ * Google Flights engine. Passing `returnDate` prices a round trip instead of
+ * a one-way. Isolated here so the provider can be swapped (e.g.
+ * FlightAPI.io, a future Amadeus program) without touching callers.
  */
 export async function fetchCheapestPriceForDate(
   origin: string,
   destination: string,
-  date: string
+  date: string,
+  returnDate?: string | null
 ): Promise<ProviderPriceResult | null> {
+  const roundTrip = Boolean(returnDate);
+
   const response = await axios.get<SerpApiFlightsResponse>("https://serpapi.com/search", {
     params: {
       engine: "google_flights",
       departure_id: origin,
       arrival_id: destination,
       outbound_date: date,
-      type: 2, // one-way
+      ...(roundTrip ? { return_date: returnDate } : {}),
+      type: roundTrip ? 1 : 2, // 1 = round trip, 2 = one-way
       currency: "USD",
       api_key: env.serpApiKey,
     },
-    timeout: 15000,
+    timeout: 20000,
   });
 
   const options = [...(response.data.best_flights ?? []), ...(response.data.other_flights ?? [])];
@@ -58,6 +65,7 @@ export async function fetchCheapestPriceForDate(
 
   return {
     date,
+    returnDate: returnDate ?? null,
     price: cheapest.price,
     currency: "USD",
     airline: cheapest.flights?.[0]?.airline ?? null,

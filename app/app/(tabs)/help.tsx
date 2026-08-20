@@ -9,19 +9,28 @@ const SECTIONS: {
 }[] = [
   {
     icon: "search",
-    title: "Search for flights",
+    title: "Search one-way",
     steps: [
       "Tap From and To to pick your airports. Search by city, airport name, or code — Paris, Heathrow, JFK.",
-      "Pick the earliest and latest dates you could fly, up to 10 days apart.",
+      "Tap When to open the calendar. Tap your earliest date, then your latest — up to 10 days apart.",
       "Tap Search flights. We check every day in that range and sort the results cheapest first.",
+    ],
+  },
+  {
+    icon: "swap-horizontal",
+    title: "Search round trip",
+    steps: [
+      "Switch the toggle at the top from One-way to Round trip.",
+      "Pick the range of dates you could leave, then tap Days away to set how long you're staying — a range like 5 to 7 days works well.",
+      "We price every departure date against every trip length and show the cheapest combination, so you can see whether leaving a day earlier or staying a day longer saves money.",
     ],
   },
   {
     icon: "airplane",
     title: "See flight details",
     steps: [
-      "Tap any result to see the airline flying that fare.",
-      "Tap View on Google Flights to open that exact route and date, where you can book it.",
+      "Tap any result to see the airline, the exact dates, and how long the trip is.",
+      "Tap View on Google Flights to open that route and date, where you can book it.",
     ],
   },
   {
@@ -42,6 +51,14 @@ const SECTIONS: {
       "Searching works whether you're signed in or not.",
     ],
   },
+  {
+    icon: "moon",
+    title: "Dark mode",
+    steps: [
+      "Tap the moon or sun in the top right to switch between light and dark.",
+      "The app follows your device's appearance setting until you choose one yourself.",
+    ],
+  },
 ];
 
 export default function HelpScreen() {
@@ -55,7 +72,7 @@ export default function HelpScreen() {
     >
       <Text style={[styles.intro, { color: colors.textSecondary }]}>
         Cheaper Flights compares fares across a range of dates so you can see which day is cheapest
-        to fly.
+        to fly — one-way, or round trip across different trip lengths.
       </Text>
 
       {SECTIONS.map((section) => (

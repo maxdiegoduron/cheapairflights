@@ -6,13 +6,20 @@ export interface PriceSearchParams {
   destination: string;
   startDate: string;
   endDate: string;
+  /** Round trip when set: number of days away, inclusive range. */
+  minStayDays?: number;
+  maxStayDays?: number;
 }
 
 export interface PriceSearchResult {
   origin: string;
   destination: string;
+  roundTrip: boolean;
   results: ProviderPriceResult[];
 }
+
+/** Hard ceiling on provider calls per search, to protect the free quota. */
+export const MAX_COMBINATIONS = 30;
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
@@ -33,24 +40,32 @@ function enumerateDates(startDate: string, endDate: string): string[] {
   return dates;
 }
 
+function addDays(date: string, days: number): string {
+  const d = new Date(date + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 async function getCachedOrFetch(
   origin: string,
   destination: string,
-  date: string
+  date: string,
+  returnDate: string | null
 ): Promise<ProviderPriceResult | null> {
-  const key = cacheKey(origin, destination, date);
+  const key = cacheKey(origin, destination, date, returnDate);
   const cached = cache.get(key);
 
   if (cached && cached.expiresAt > Date.now()) {
     return {
       date: cached.date,
+      returnDate: cached.returnDate,
       price: cached.price,
       currency: cached.currency,
       airline: cached.airline,
     };
   }
 
-  const result = await fetchCheapestPriceForDate(origin, destination, date);
+  const result = await fetchCheapestPriceForDate(origin, destination, date, returnDate);
 
   // Only persist successful lookups; a miss (no prices found) isn't worth
   // caching to disk since it's rare and cheap to just retry next time.
@@ -59,6 +74,7 @@ async function getCachedOrFetch(
       origin,
       destination,
       date,
+      returnDate,
       price: result.price,
       currency: result.currency,
       airline: result.airline,
@@ -93,16 +109,32 @@ async function mapWithConcurrency<T, R>(
 }
 
 export async function searchPrices(params: PriceSearchParams): Promise<PriceSearchResult> {
-  const { origin, destination, startDate, endDate } = params;
+  const { origin, destination, startDate, endDate, minStayDays, maxStayDays } = params;
+  const roundTrip = typeof minStayDays === "number" && typeof maxStayDays === "number";
   const dates = enumerateDates(startDate, endDate);
 
-  const results = await mapWithConcurrency(dates, 3, (date) =>
-    getCachedOrFetch(origin, destination, date)
+  // Each pair is one provider call. For a round trip that's every departure
+  // date crossed with every stay length, which grows fast — the route layer
+  // rejects anything over MAX_COMBINATIONS before we get here.
+  const pairs: { date: string; returnDate: string | null }[] = [];
+  for (const date of dates) {
+    if (roundTrip) {
+      for (let stay = minStayDays!; stay <= maxStayDays!; stay++) {
+        pairs.push({ date, returnDate: addDays(date, stay) });
+      }
+    } else {
+      pairs.push({ date, returnDate: null });
+    }
+  }
+
+  const results = await mapWithConcurrency(pairs, 3, (pair) =>
+    getCachedOrFetch(origin, destination, pair.date, pair.returnDate)
   );
 
   return {
     origin,
     destination,
+    roundTrip,
     results: results.filter((r): r is ProviderPriceResult => r !== null),
   };
 }

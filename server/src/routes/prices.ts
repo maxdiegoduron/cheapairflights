@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { searchPrices } from "../services/priceSearch";
+import { MAX_COMBINATIONS, searchPrices } from "../services/priceSearch";
 
 const router = Router();
 
@@ -12,7 +12,7 @@ router.get("/health", (_req, res) => {
 });
 
 router.post("/prices", async (req, res) => {
-  const { origin, destination, startDate, endDate } = req.body ?? {};
+  const { origin, destination, startDate, endDate, minStayDays, maxStayDays } = req.body ?? {};
 
   if (
     typeof origin !== "string" ||
@@ -39,8 +39,38 @@ router.post("/prices", async (req, res) => {
     return;
   }
 
+  // Round trip is opt-in: both stay bounds must be present and sane together.
+  const wantsRoundTrip = minStayDays !== undefined || maxStayDays !== undefined;
+  if (wantsRoundTrip) {
+    const validStay = (v: unknown): v is number =>
+      typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 30;
+
+    if (!validStay(minStayDays) || !validStay(maxStayDays)) {
+      res.status(400).json({ error: "Stay length must be whole numbers between 1 and 30 days." });
+      return;
+    }
+    if (minStayDays > maxStayDays) {
+      res.status(400).json({ error: "Minimum stay can't be longer than the maximum stay." });
+      return;
+    }
+
+    const combinations = rangeDays * (maxStayDays - minStayDays + 1);
+    if (combinations > MAX_COMBINATIONS) {
+      res.status(400).json({
+        error: `That's ${combinations} searches, over the ${MAX_COMBINATIONS} limit. Narrow your date range or stay length.`,
+      });
+      return;
+    }
+  }
+
   try {
-    const result = await searchPrices({ origin, destination, startDate, endDate });
+    const result = await searchPrices({
+      origin,
+      destination,
+      startDate,
+      endDate,
+      ...(wantsRoundTrip ? { minStayDays, maxStayDays } : {}),
+    });
     res.json(result);
   } catch (err) {
     console.error("searchPrices failed:", err);
