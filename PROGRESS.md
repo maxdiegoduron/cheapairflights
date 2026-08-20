@@ -60,9 +60,25 @@ Full plan: see the plan approved on 2026-08-20 (steps, architecture, decisions) 
 - **Production build verified end-to-end**: exported `dist/`, served it locally with SPA fallback, and confirmed live search (real prices + airlines) and Supabase signup both work against the real build.
 - **Key gotcha confirmed by testing**: the prod build's first search failed purely because `ALLOWED_ORIGIN` didn't match the serving origin. CORS is the most likely deploy failure. Deploy order must be: backend → frontend (needs backend URL at build time) → set backend `ALLOWED_ORIGIN` to the frontend URL → redeploy backend.
 
+### 2026-08-20 — Calendar picker, round trip, hosting live
+- **Hosted and live.** Frontend: `https://cheapairflights.onrender.com` (Render Static Site, root dir `app`, publish dir **`app/dist`** — note Render resolves publish dir from the repo root, not the root directory; setting it to `dist` caused `x-render-routing: static-no-asset` 404s). Backend: `https://cheapairflights-api.onrender.com` (Render Web Service, root dir `server`, build `npm install --include=dev && npm run build`, health check `/api/health`). Both verified with live search returning real prices.
+- **Calendar date picker** replaced the typed date fields: `src/components/Calendar.tsx` (custom month grid, range selection, past dates disabled) + `app/date-picker.tsx` modal. Built in-house rather than using a library so web and native render identically.
+- **Tab bar** was clipping labels in mobile browsers — they report no bottom safe-area inset but still overlay their own chrome. Fixed with `Math.max(insets.bottom, 8)` and larger labels.
+- **Round trip** added at user request: One-way / Round trip toggle, plus a "Days away" min–max range (`app/stay-picker.tsx`). Backend prices every departure date × every trip length. Provider sends `return_date` + `type=1`; CSV cache keys on return date.
+  - **Quota guard**: combinations multiply fast (7 dates × 5 lengths = 35 calls), so both client and route cap at **30 combinations** (`MAX_COMBINATIONS`, duplicated in `server/src/services/priceSearch.ts` and `app/src/state/routeSelection.ts` — keep them in sync). The stay picker shows the exact call count before searching.
+  - **Bug caught by testing**: round-trip results share departure dates, which collided in the FlatList keys, the saved-bookmark map, and the "Cheapest" badge (it rendered on every row with the cheapest date). All three now key on `date|returnDate` via `resultKey()`.
+- **Supabase migration pending**: `supabase/002_add_return_date.sql` adds the nullable `return_date` column. **Must be run in the Supabase SQL editor or saving a round trip will fail.**
+- Help tab rewritten to cover round trips, the calendar, airport search, and dark mode.
+
 ## Next Steps
 
-1. ~~Phone test~~ — **done 2026-08-20. Confirmed working on the user's real iPhone via Expo Go on SDK 54.** Stay on SDK 54 unless there's a strong reason to move; SDK 57 was rejected by their Expo Go.
+**Outstanding user actions (both block features):**
+1. **Run `supabase/002_add_return_date.sql`** in the Supabase SQL editor — without it, saving a round-trip flight fails.
+2. **Add the SPA rewrite rule** on the Render static site (Redirects/Rewrites → Source `/*`, Destination `/index.html`, Action **Rewrite**). Without it, direct links and refreshes on `/account`, `/help`, etc. return 404. This has been pending for a while and is still not applied.
+3. **Lock down CORS**: the backend's `ALLOWED_ORIGIN` is still `*` from initial setup. Set it to `https://cheapairflights.onrender.com` and redeploy.
+
+**Then:**
+4. ~~Phone test~~ — **done 2026-08-20. Confirmed working on the user's real iPhone via Expo Go on SDK 54.** Stay on SDK 54 unless there's a strong reason to move; SDK 57 was rejected by their Expo Go.
    - For phone testing, `app/.env` points at the LAN IP `http://10.0.0.61:4000` instead of `localhost` (a phone's "localhost" is the phone itself). **Switch back to `http://localhost:4000` for web-only testing**, or update it when the machine's Wi-Fi IP changes — this is the most likely thing to break the phone setup later.
 2. Deploy backend to Render free tier; point the app at the Render URL.
 3. Optional polish: persist the theme choice, revisit `npm audit` findings before any real deployment.
