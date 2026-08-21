@@ -1,17 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  Image,
-  KeyboardAvoidingView,
-  LayoutChangeEvent,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { searchPrices } from "../../src/api/client";
 import {
   ErrorBanner,
@@ -41,52 +31,6 @@ import { useTheme } from "../../src/theme/ThemeContext";
 
 const IATA_CODE = /^[A-Za-z]{3}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-const BACKGROUND_IMAGE_WIDTH = 4284;
-const BACKGROUND_IMAGE_HEIGHT = 5712;
-// Fraction of the crop's vertical slack to shift down by, so the crop centers
-// on the face instead of the hairline. 0 = anchored to the very top, 1 = anchored
-// to the very bottom.
-const BACKGROUND_FOCAL_RATIO = 0.32;
-
-function TopAnchoredBackground({ children }: { children: React.ReactNode }) {
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(
-    null,
-  );
-
-  function onLayout(event: LayoutChangeEvent) {
-    const { width, height } = event.nativeEvent.layout;
-    setContainerSize({ width, height });
-  }
-
-  const scale = containerSize
-    ? Math.max(
-        containerSize.width / BACKGROUND_IMAGE_WIDTH,
-        containerSize.height / BACKGROUND_IMAGE_HEIGHT,
-      )
-    : 0;
-  const imageWidth = BACKGROUND_IMAGE_WIDTH * scale;
-  const imageHeight = BACKGROUND_IMAGE_HEIGHT * scale;
-  const verticalSlack = containerSize ? Math.max(imageHeight - containerSize.height, 0) : 0;
-
-  return (
-    <View style={{ flex: 1, overflow: "hidden" }} onLayout={onLayout}>
-      {containerSize ? (
-        <Image
-          source={require("../../assets/SuperFly.png")}
-          style={{
-            position: "absolute",
-            top: -(verticalSlack * BACKGROUND_FOCAL_RATIO),
-            left: (containerSize.width - imageWidth) / 2,
-            width: imageWidth,
-            height: imageHeight,
-          }}
-        />
-      ) : null}
-      {children}
-    </View>
-  );
-}
 
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -178,8 +122,8 @@ export default function SearchScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <TopAnchoredBackground>
       <ScrollView
+        style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
@@ -296,7 +240,6 @@ export default function SearchScreen() {
           <PrimaryButton title="Search flights" onPress={onSearch} loading={loading} />
         </View>
       </ScrollView>
-      </TopAnchoredBackground>
     </KeyboardAvoidingView>
   );
 }
